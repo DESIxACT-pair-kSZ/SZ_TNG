@@ -4,6 +4,30 @@ from numba import njit
 from nbodykit.lab import ArrayCatalog, FieldMesh
 from nbodykit.base.mesh import MeshFilter
 
+@njit(nogil=True, parallel=False)
+def hist2d_numba_seq(tracks, bins, ranges, weights=np.empty(0), dtype=np.float32):
+    """
+    This is 8-9 times faster than np.histogram
+    We give the signature here so it gets precompmiled
+    In theory, this could even be threaded (nogil!)
+    """    
+    #H = np.zeros((bins[0], bins[1]), dtype=np.uint64)
+    H = np.zeros((bins[0], bins[1]), dtype=np.float64)
+    delta = 1/((ranges[:,1] - ranges[:,0]) / bins)
+    Nw = len(weights)
+
+    for t in range(tracks.shape[1]):
+        i = (tracks[0,t] - ranges[0,0]) * delta[0]
+        j = (tracks[1,t] - ranges[1,0]) * delta[1]
+        if 0 <= i < bins[0] and 0 <= j < bins[1]:
+            if Nw == 1:
+                H[int(i),int(j)] += 1.
+            else:
+                H[int(i),int(j)] += weights[t]
+
+    return H
+
+
 @numba.vectorize
 def rightwrap(x, L):
     if x >= L:
