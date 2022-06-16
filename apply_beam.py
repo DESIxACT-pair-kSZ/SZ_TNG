@@ -3,12 +3,49 @@ Script for obtaining beamed SZ maps
 Size of box in degrees: (((1/1+z=1)*Lboxmpch)^2/d_Ampch^2*(180/pi)^2 
 """
 import numpy as np
+import matplotlib
+matplotlib.rcParams.update({'font.size': 30})
 import matplotlib.pyplot as plt
-
+import h5py
 from astropy.cosmology import FlatLambdaCDM
 import astropy.units as u
+import argparse
+
+# command line arguments -- latin hypercube number, initial and final snapshot number, number of bins for maps 
+# note: final snapshot number is the highest redshift for lightcone
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--LHnum','-lh', type=str)
+parser.add_argument('--snapinit','-si', type=int)
+parser.add_argument('--snapfinal','-sf', type=int)
+parser.add_argument('--nbins','-nb', type=int)
+args = parser.parse_args()
+LHnum = args.LHnum
+snapinit = args.snapinit
+snapfinal = args.snapfinal
+nbins = args.nbins
+
+# check to see that LH and snap nums are valid
+LHlist = [str(i) for i in range(1000)]
+snaplist = np.arange(34)
+
+if LHnum not in LHlist:
+    print('LH number out of bounds')
+save_dir = "/global/cscratch1/sd/kjc268/CAMELS_TSZ/LH_{}".format(LHnum) 
+
+if snapinit not in snaplist: 
+    print('snapshot number out of bounds')
+if snapfinal in snaplist: 
+    if snapfinal > snapinit: 
+        print('final snapshot number must be less than initial snapshot number')
+    elif snapfinal == snapinit:
+        print('no lightcone, single redshift maps')
+else: 
+    snapfinal = snapinit 
+    print('no lightcone, single redshift maps')
 
 def get_smooth_density(D, fwhm, Lbox, N_dim):
+    # if using physical karr, be mindful of Lbox units
     """
     Smooth density map D ((0, Lbox] and N_dim^2 cells) with Gaussian beam of FWHM
     """
@@ -35,24 +72,36 @@ def gauss_beam(ellsq, fwhm):
     return np.exp(-(tht_fwhm**2.)*(ellsq)/(8.*np.log(2.)))
 
 # simulation choices
-#save_dir = "/freya/ptmp/mpa/boryanah/data_sz/" # virgo
-save_dir = "/n/holystore01/LABS/hernquist_lab/Everyone/bhadzhiyska/SZ_TNG/" # cannon
+basePath = "/global/cscratch1/sd/kjc268/CAMELS_ITNG/LH_{}/snap_{}.hdf5".format(LHnum,str(snapinit).zfill(3))
+n_chunks = h5py.File(basePath)['Header'].attrs['NumFilesPerSnapshot']
+z = h5py.File(basePath)['Header'].attrs['Redshift'] # TNG
+a = 1./(1+z)
+c = 29979245800. # cm/s
+Omega0= h5py.File(basePath)['Header'].attrs['Omega0']
+h = h5py.File(basePath)['Header'].attrs['HubbleParam']
+
+Lbox = 25. # cMpc/h 
 dirs = ['xy', 'yz', 'zx']
-N_dim = 10000
-Lbox = 500.
+N_dim = nbins-1
+
+#cosmo stuff 
+paramsfile = "/global/cscratch1/sd/kjc268/CAMELS_ITNG/LH_{}/CosmoAstro_params.txt".format(LHnum)
+f = open(paramsfile,"r")
+params = f.read().split(" ")
+omegam = float(params[0])
+sigma8 = float(params[1])
+#Asn1 = float(params[2]);Asn2 = float(params[3]);Aagn1 = float(params[4]);Aagn2 = float(params[5]) 
+f.close()
 
 # gaussian beam
-fwhm = 1.3 #arcmin 2009.05557 not ideal
+#fwhm = 1.3 #arcmin 2009.05557 not ideal
 fwhm = 2.1 #arcmin 2009.05557
 
 # compute angular distance
-redshift = 1.
-a = 1./(1+redshift)
-h = 0.6774
-cosmo = FlatLambdaCDM(H0=h*100., Om0=0.3089, Tcmb0=2.725)
-d_L = cosmo.luminosity_distance(redshift).to(u.Mpc).value
-d_A = d_L/(1.+redshift)**2 # dA = dL/(1+z)^2 # Mpc
-d_A *= h
+cosmo = FlatLambdaCDM(H0=h*100., Om0=Omega0, Tcmb0=2.725)
+d_L = cosmo.luminosity_distance(z).to(u.Mpc).value
+d_A = d_L/(1.+z)**2 # dA = dL/(1+z)^2 # Mpc
+d_A *= h 
 print("d_A =", d_A) # Mpc/h
 
 # box size in degrees
@@ -60,11 +109,16 @@ Lboxdeg = np.sqrt((a*Lbox)**2/d_A**2*(180./np.pi)**2)
 pixsizedeg = Lboxdeg/N_dim
 print("Lboxdeg = ", Lboxdeg)
 
+if snapfinal == snapinit: 
+    snapinit = str(snapinit).zfill(3)
+else: 
+    snapinit = str(snapinit).zfill(3) + "_to_" + str(snapfinal).zfill(3)
+    
 # for each of three projections
 for i in range(len(dirs)):
 
     # load tSZ map
-    Y_xy = np.load(f"{save_dir}/Y_compton_{dirs[i]:s}_snap_{snapshot:d}.npy")
+    Y_xy = np.load(f"{save_dir}/Y_compton_{dirs[i]:s}_snap_{snapinit:s}.npy")
 
     # smooth with beam
     Y_beam_xy = get_smooth_density(Y_xy, fwhm, Lbox, N_dim)
@@ -72,33 +126,63 @@ for i in range(len(dirs)):
     mean_Y_xy = Y_beam_xy.mean()
 
     # plot and save unbeamed
-    plt.figure(figsize=(16,14))
-    plt.imshow(np.log10(1+Y_xy), vmin=np.log10(1+mean_Y_xy-4.*std_Y_xy), vmax=np.log10(1+mean_Y_xy+4.*std_Y_xy))
-    plt.savefig(f"figs/Y_{dirs[i]:s}.png")
+    fig, ax = plt.subplots(1, 1, figsize=(16,14))
+    ax.set_xlabel('cMpc/h')
+    ax.set_ylabel('cMpc/h')
+    ticks = [str(np.round(x))[:-2] for x in np.linspace(0,Lbox,11)]
+    ax.set_xticks(np.arange(N_dim, 0, step=-N_dim/10))
+    ax.set_xticklabels(ticks[0:-1])
+    ax.set_yticks(np.arange(0, N_dim, step=N_dim/10))
+    ax.set_yticklabels(ticks[0:-1])
+    ax.set_title("z = "+"{:.2e}".format(z)+ " $\Omega_m$={}".format(omegam)+ " $\sigma_8$={}".format(sigma8))
+    # set zero values to min of array
+    mask = np.ma.array(Y_xy, mask=Y_xy<=0).min()
+    newY= np.where(Y_xy == 0, mask, Y_xy)
+    im = plt.imshow(np.log10(newY),cmap='inferno')
+    # vmin=np.log10(1+mean_Y_xy-4.*std_Y_xy), vmax=np.log10(1+mean_Y_xy+4.*std_Y_xy),
+    cbar = plt.colorbar(im,fraction=0.046, pad=0.04)
+    cbar.set_label(r'log $Y_{{{}}}$'.format(dirs[i]))
+    plt.savefig(f"{save_dir}/figs/LH{LHnum}_snap_{snapinit}_Y_{dirs[i]:s}.png")
     plt.close()
 
     # plot and save beamed
-    plt.figure(figsize=(16,14))
-    plt.imshow(np.log10(1+Y_beam_xy), vmin=np.log10(1+mean_Y_xy-4.*std_Y_xy), vmax=np.log10(1+mean_Y_xy+4.*std_Y_xy))
-    plt.savefig(f"figs/Y_beam_{dirs[i]:s}.png")
+    fig, ax = plt.subplots(1, 1, figsize=(16,14))
+    ax.set_xlabel('cMpc/h')
+    ax.set_ylabel('cMpc/h')
+    ticks = [str(np.round(x))[:-2] for x in np.linspace(0,Lbox,11)]
+    ax.set_xticks(np.arange(N_dim, 0, step=-N_dim/10))
+    ax.set_xticklabels(ticks[0:-1])
+    ax.set_yticks(np.arange(0, N_dim, step=N_dim/10))
+    ax.set_yticklabels(ticks[0:-1])
+    ax.set_title("z = "+"{:.2e}".format(z)+ " $\Omega_m$={}".format(omegam)+ " $\sigma_8$={}".format(sigma8))
+    # set zero values to min of array
+    mask = np.ma.array(Y_beam_xy, mask=Y_beam_xy<=0).min()
+    newY= np.where(Y_beam_xy == 0, mask, Y_beam_xy)
+    im = plt.imshow(np.log10(newY),cmap='inferno')
+    #vmin=np.log10(1+mean_Y_xy-4.*std_Y_xy), vmax=np.log10(1+mean_Y_xy+4.*std_Y_xy),
+    cbar = plt.colorbar(im,fraction=0.046, pad=0.04)
+    cbar.set_label(r'log $Yb_{{{}}}$'.format(dirs[i]))
+    plt.savefig(f"{save_dir}/figs/LH{LHnum}_snap_{snapinit}_Y_beam_{dirs[i]:s}.png")
     plt.close()
 
-    # load kSZ map
-    b_xy = np.load(f"{save_dir}/b_{dirs[i]:s}_snap_{snapshot:d}.npy")
+#     # load kSZ map
+#     b_xy = np.load(f"{save_dir}/b_{dirs[i]:s}_snap_{snapshot:d}.npy")
 
-    # smooth with beam
-    b_beam_xy = get_smooth_density(b_xy, fwhm, Lbox, N_dim)
-    std_b_xy = b_beam_xy.std()
-    mean_b_xy = b_beam_xy.mean() 
+#     # smooth with beam
+#     b_beam_xy = get_smooth_density(b_xy, fwhm, Lbox, N_dim)
+#     std_b_xy = b_beam_xy.std()
+#     mean_b_xy = b_beam_xy.mean() 
 
-    # plot and save unbeamed
-    plt.figure(figsize=(16,14))
-    plt.imshow((1+b_xy), vmin=(1+mean_b_xy-4.*std_b_xy), vmax=(1+mean_b_xy+4.*std_b_xy))
-    plt.savefig(f"figs/b_{dirs[i]:s}.png")
-    plt.close()
+#     # plot and save unbeamed
+#     plt.figure(figsize=(16,14))
+#     im = plt.imshow((1+b_xy), vmin=(1+mean_b_xy-4.*std_b_xy), vmax=(1+mean_b_xy+4.*std_b_xy))
+#     bar = plt.colorbar(im)
+#     plt.savefig(f"{save_dir}/figs/b_{dirs[i]:s}.png")
+#     plt.close()
 
-    # plot and save beamed
-    plt.figure(figsize=(16,14))
-    plt.imshow((1+b_beam_xy), vmin=(1+mean_b_xy-4.*std_b_xy), vmax=(1+mean_b_xy+4.*std_b_xy))
-    plt.savefig(f"figs/b_beam_{dirs[i]:s}.png")
-    plt.close()
+#     # plot and save beamed
+#     plt.figure(figsize=(16,14))
+#     im = plt.imshow((1+b_beam_xy), vmin=(1+mean_b_xy-4.*std_b_xy), vmax=(1+mean_b_xy+4.*std_b_xy))
+#     bar = plt.colorbar(im)
+#     plt.savefig(f"{save_dir}/figs/b_beam_{dirs[i]:s}.png")
+#     plt.close()
