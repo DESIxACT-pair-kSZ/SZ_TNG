@@ -56,10 +56,8 @@ af = 0 # initialize smallest scale factor
 Lbox = 25. # cMpc/h
 Lbox *= 1000. # ckpc/h -- kpc for binning
 # for the histograming
-ranges = ((0., Lbox),(0., Lbox)) #ckpc/h
 nbins2d = (nbins-1, nbins-1)
 nbins2d = np.asarray(nbins2d).astype(np.int64)
-ranges = np.asarray(ranges).astype(np.float64)
 # bins
 bins = np.linspace(0, Lbox, nbins)
 binc = (bins[1:]+bins[:-1])*0.5
@@ -122,6 +120,8 @@ for snapshot in snaps:
         myz = my.mask*mz.mask
         mzx = mz.mask*mx.mask
         
+        ranges = ((start, end),(start, end)) #ckpc/h
+        ranges = np.asarray(ranges).astype(np.float64)
         # flatten out in each of three directions (10 times faster than histogramdd
         Dxy = hist2d_numba_seq(np.array([C[:, 0][mxy], C[:, 1][mxy]]), bins=nbins2d, ranges=ranges, weights=dY[mxy], dtype=np.float64)
         Dyz = hist2d_numba_seq(np.array([C[:, 1][myz], C[:, 2][myz]]), bins=nbins2d, ranges=ranges, weights=dY[myz], dtype=np.float64)
