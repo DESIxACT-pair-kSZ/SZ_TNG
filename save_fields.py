@@ -11,6 +11,7 @@ import os
 
 # command line arguments -- latin hypercube number, initial and final snapshot number
 # note: final snapshot number is the highest redshift for lightcone
+#ex. save_fields.py -lh 0 -si 32 -sf 31 
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--LHnum','-lh', type=str)
