@@ -177,7 +177,7 @@ for snapshot in snaps:
         
         # rotation   
         print("rotating axes")
-        angle = (np.pi/2)*np.random.randint(3)
+        angle = (np.pi/2)*np.random.randint(4)
         axes = ['x','y','z']
         axis = axes[np.random.randint(3)]
         qrotC = quat.as_quat_array(np.hstack((np.ones((len(C[:,0]),1)),C))) 
