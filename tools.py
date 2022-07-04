@@ -2,7 +2,7 @@ import numpy as np
 import numba
 from numba import njit
 from nbodykit.lab import ArrayCatalog, FieldMesh
-from nbodykit.base.mesh import MeshFilter
+#from nbodykit.base.mesh import MeshFilter
 
 @njit(nogil=True, parallel=False)
 def hist2d_numba_seq(tracks, bins, ranges, weights=np.empty(0), dtype=np.float32):

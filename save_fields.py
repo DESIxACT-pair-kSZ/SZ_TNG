@@ -1,6 +1,8 @@
 """
 Script for saving fields of interest for each gas cell to be used in creating SZ maps
 """
+import gc
+import os
 import numpy as np
 import h5py
 from tools import numba_tsc_3D
@@ -26,13 +28,29 @@ unit_mass = 1.e10*(solar_mass/h)
 unit_dens = 1.e10*(solar_mass/h)/(kpc_to_cm/h)**3 # g/cm**3 # note density has units of h in it
 unit_vol = (kpc_to_cm/h)**3
 
+# simulation choices
+#sim_name = "MTNG"
+sim_name = "TNG300"
+if sim_name == "TNG300":
+    snaps, _, zs, _ = np.loadtxt(os.path.expanduser("~/repos/hydrotools/hydrotools/data/snaps_illustris_tng205.txt"), skiprows=1, unpack=True)
+elif sim_name == "MNTG":
+    snaps, _, zs, _ = np.loadtxt(os.path.expanduser("~/repos/hydrotools/hydrotools/data/snaps_illustris_mtng.txt"), skiprows=1, unpack=True)
+snaps = snaps.astype(int)
+# 99, 91, 84, 78, 72, 67, 63, 59, 56, 53, 50
+# 0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.79, 0.89, 1.
+
+
 # simulation info
-#basePath = "/virgotng/mpa/MTNG/Hydro-Arepo/MTNG-L500-4320-A/output/"; snapshot = 179; n_chunks = 640; z = 1. # MTNG
-basePath = "/n/holylfs05/LABS/hernquist_lab/IllustrisTNG/Runs/L205n2500TNG/output"; snapshot = 99; n_chunks = 600; z = 0. # TNG
-#save_dir = "/freya/ptmp/mpa/boryanah/data_sz/" # virgo
-save_dir = "/n/holystore01/LABS/hernquist_lab/Everyone/bhadzhiyska/SZ_TNG/" # cannon
+if sim_name == "TNG300":
+    basePath = "/n/holylfs05/LABS/hernquist_lab/IllustrisTNG/Runs/L205n2500TNG/output/"
+    n_chunks = 600
+    #save_dir = "/n/holystore01/LABS/hernquist_lab/Everyone/bhadzhiyska/SZ_TNG/" # cannon
+    save_dir = "/n/holylfs05/LABS/hernquist_lab/Everyone/boryanah/SZ_TNG/" # cannon
+elif sim_name == "MNTG":
+    basePath = "/virgotng/mpa/MTNG/Hydro-Arepo/MTNG-L500-4320-A/output/"
+    n_chunks = 640
+    save_dir = "/freya/ptmp/mpa/boryanah/data_sz/" # virgo
 PartType = 'PartType0' # gas cells
-a = 1./(1+z)
 
 # fields to load
 fields = ['InternalEnergy', 'ElectronAbundance', 'Density', 'Masses', 'Coordinates', 'Velocities']
@@ -41,46 +59,56 @@ fields = ['InternalEnergy', 'ElectronAbundance', 'Density', 'Masses', 'Coordinat
 Tmin = 0. # 1.e4, 1.e6
 
 # loop over each chunk in the simulation
-for i in range(0, n_chunks):
-    print("chunk = ", i)
+snapshots = [78, 72, 67, 63, 59, 56, 53, 50]
+for snapshot in snapshots:
+    z = zs[snaps == snapshot]
+    a = 1./(1+z)
+    print("redshift = ", z)
 
-    # read positions of DM particles
-    hfile = h5py.File(basePath+f'snapdir_{snapshot:03d}/snapshot_{snapshot:03d}.{i:d}.hdf5')[PartType]
-    #print(list(hfile.keys()))
+    for i in range(0, n_chunks): 
+        print("chunk = ", i)
 
-    # select all fields of interest
-    C = hfile['Coordinates'][:]
-    EA = hfile['ElectronAbundance'][:]
-    IE = hfile['InternalEnergy'][:]
-    D = hfile['Density'][:]
-    M = hfile['Masses'][:]
-    C = hfile['Coordinates'][:]
-    V = hfile['Velocities'][:]
+        # read positions of DM particles
+        if sim_name == "TNG300":
+            hfile = h5py.File(basePath+f'snapdir_{snapshot:03d}/snap_{snapshot:03d}.{i:d}.hdf5')[PartType]
+        elif sim_name == "MNTG":
+            hfile = h5py.File(basePath+f'snapdir_{snapshot:03d}/snapshot_{snapshot:03d}.{i:d}.hdf5')[PartType]
+        #print(list(hfile.keys()))
+
+        # select all fields of interest
+        C = hfile['Coordinates'][:]
+        EA = hfile['ElectronAbundance'][:]
+        IE = hfile['InternalEnergy'][:]
+        D = hfile['Density'][:]
+        M = hfile['Masses'][:]
+        V = hfile['Velocities'][:]
     
-    # for each cell, compute its total volume (gas mass by gas density) and convert density units
-    dV = M/D # cMpc/h^3 (MTNG) or ckpc/h^3 (TNG)
-    D *= unit_dens # g/cm^3 # True for TNG and mixed for MTNG because of unit difference
+        # for each cell, compute its total volume (gas mass by gas density) and convert density units
+        dV = M/D # cMpc/h^3 (MTNG) or ckpc/h^3 (TNG)
+        D *= unit_dens # g/cm^3 # True for TNG and mixed for MTNG because of unit difference
 
-    # obtain electron temperature, electron number density and velocity
-    Te = (gamma - 1.)*IE/k_B * 4*m_p/(1 + 3*X_H + 4*X_H*EA) * unit_c # K
-    ne = EA*X_H*D/m_p # cm^-3 # True for TNG and mixed for MTNG because of unit difference
-    Ve = V*np.sqrt(a) # km/s
+        # obtain electron temperature, electron number density and velocity
+        Te = (gamma - 1.)*IE/k_B * 4*m_p/(1 + 3*X_H + 4*X_H*EA) * unit_c # K
+        ne = EA*X_H*D/m_p # cm^-3 # True for TNG and mixed for MTNG because of unit difference
+        Ve = V*np.sqrt(a) # km/s
 
-    # select cells above certain temperature
-    choice = Te > Tmin
-    print("percentage above Tmin = ", np.sum(choice)*100./len(choice))
+        # select cells above certain temperature
+        choice = Te > Tmin
+        print("percentage above Tmin = ", np.sum(choice)*100./len(choice))
 
-    # make cuts on the fields of interest
-    Te = Te[choice]
-    ne = ne[choice]
-    Ve = Ve[choice]
-    dV = dV[choice]
-    C = C[choice]
-    print("mean temperature = ", np.mean(Te))
+        # make cuts on the fields of interest
+        Te = Te[choice]
+        ne = ne[choice]
+        Ve = Ve[choice]
+        dV = dV[choice]
+        C = C[choice]
+        print("mean temperature = ", np.mean(Te))
     
-    # save all fields of interest
-    np.save(f"{save_dir}/temperature_chunk_{i:d}_snap_{snapshot:d}.npy", Te)
-    np.save(f"{save_dir}/number_density_chunk_{i:d}_snap_{snapshot:d}.npy", ne)
-    np.save(f"{save_dir}/velocity_chunk_{i:d}_snap_{snapshot:d}.npy", Ve)
-    np.save(f"{save_dir}/volume_chunk_{i:d}_snap_{snapshot:d}.npy", dV)
-    np.save(f"{save_dir}/position_chunk_{i:d}_snap_{snapshot:d}.npy", C)
+        # save all fields of interest
+        np.save(f"{save_dir}/temperature_chunk_{i:d}_snap_{snapshot:d}.npy", Te.astype(np.float32))
+        np.save(f"{save_dir}/number_density_chunk_{i:d}_snap_{snapshot:d}.npy", ne.astype(np.float32))
+        np.save(f"{save_dir}/velocity_chunk_{i:d}_snap_{snapshot:d}.npy", Ve.astype(np.float32))
+        np.save(f"{save_dir}/volume_chunk_{i:d}_snap_{snapshot:d}.npy", dV.astype(np.float32))
+        np.save(f"{save_dir}/position_chunk_{i:d}_snap_{snapshot:d}.npy", C.astype(np.float32))
+        
+        del M, D, EA, IE, Te, ne, Ve, dV, C, choice; gc.collect()
