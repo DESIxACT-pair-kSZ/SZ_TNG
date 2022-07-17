@@ -39,7 +39,7 @@ if sim_name == "TNG300":
 elif sim_name == "MNTG":
     snaps, _, zs, _ = np.loadtxt(os.path.expanduser("~/repos/hydrotools/hydrotools/data/snaps_illustris_mtng.txt"), skiprows=1, unpack=True)
 snaps = snaps.astype(int)
-snapshots = [91, 84, 78, 72, 67, 63, 59, 56, 53, 50]
+snapshots = [78, 91, 59]#[67]#[91, 84, 78, 72, 67, 63, 59, 56, 53, 50]
 # 99, 91, 84, 78, 72, 67, 63, 59, 56, 53, 50
 # 0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.79, 0.89, 1.
 
@@ -90,6 +90,9 @@ for snapshot in snapshots:
     b_xy = np.zeros((nbins-1, nbins-1))
     b_yz = np.zeros((nbins-1, nbins-1))
     b_zx = np.zeros((nbins-1, nbins-1))
+    tau_xy = np.zeros((nbins-1, nbins-1))
+    tau_yz = np.zeros((nbins-1, nbins-1))
+    tau_zx = np.zeros((nbins-1, nbins-1))
 
     # loop over each chunk
     for i in range(0, n_chunks):
@@ -107,6 +110,7 @@ for snapshot in snapshots:
         # both should be unitless (const*Te/d_A**2 is cm^2/cm^2; sigma_T/d_A^2 is unitless)
         dY = const*(ne*Te*dV)*unit_vol/(a*Lbox_hkpc*(kpc_to_cm/h))**2.#d_A**2 
         b = sigma_T*(ne[:, None]*(Ve/c)*dV[:, None])*unit_vol/(a*Lbox_hkpc*(kpc_to_cm/h))**2.#d_A**2
+        tau = sigma_T*(ne*dV)*unit_vol/(a*Lbox_hkpc*(kpc_to_cm/h))**2.#d_A**2
 
         # flatten out in each of three directions (10 times faster than histogramdd
         Dxy = hist2d_numba_seq(np.array([C[:, 0], C[:, 1]]), bins=nbins2d, ranges=ranges, weights=dY)
@@ -128,6 +132,16 @@ for snapshot in snapshots:
         b_yz += Dyz
         b_zx += Dzx
 
+        # flatten out in each of three directions
+        Dxy = hist2d_numba_seq(np.array([C[:, 0], C[:, 1]]), bins=nbins2d, ranges=ranges, weights=tau)
+        Dyz = hist2d_numba_seq(np.array([C[:, 1], C[:, 2]]), bins=nbins2d, ranges=ranges, weights=tau)
+        Dzx = hist2d_numba_seq(np.array([C[:, 2], C[:, 0]]), bins=nbins2d, ranges=ranges, weights=tau)
+
+        # coadd the contribution from this chunk to the three projections
+        tau_xy += Dxy
+        tau_yz += Dyz
+        tau_zx += Dzx
+
     # save tSZ maps
     np.save(f"{save_dir}/Y_compton_xy_snap_{snapshot:d}.npy", y_xy)
     np.save(f"{save_dir}/Y_compton_yz_snap_{snapshot:d}.npy", y_yz)
@@ -137,3 +151,8 @@ for snapshot in snapshots:
     np.save(f"{save_dir}/b_xy_snap_{snapshot:d}.npy", b_xy)
     np.save(f"{save_dir}/b_yz_snap_{snapshot:d}.npy", b_yz)
     np.save(f"{save_dir}/b_zx_snap_{snapshot:d}.npy", b_zx)
+
+    # save tau maps
+    np.save(f"{save_dir}/tau_xy_snap_{snapshot:d}.npy", tau_xy)
+    np.save(f"{save_dir}/tau_yz_snap_{snapshot:d}.npy", tau_yz)
+    np.save(f"{save_dir}/tau_zx_snap_{snapshot:d}.npy", tau_zx)
