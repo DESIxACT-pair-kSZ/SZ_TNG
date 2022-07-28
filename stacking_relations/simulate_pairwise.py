@@ -8,8 +8,10 @@ from astropy.cosmology import FlatLambdaCDM
 import astropy.units as u
 from astropy.coordinates import SkyCoord
 from numba_2pcf.cf import numba_pairwise_vel#, numba_2pcf
+from colossus.lss import bias
 
 from tools import extractStamp, calc_T_AP#, get_tzav_fast
+from estimator import pairwise_vel_asymm as pairwise_vel
 
 # physics constants in cgs
 m_p = 1.6726e-24 # g
@@ -23,46 +25,64 @@ solar_mass = 1.989e33 # g
 sigma_T_over_m_p = sigma_T / m_p
 solar_mass_over_Mpc_to_cm_squared = solar_mass/Mpc_to_cm**2
 
-def get_jack_corr(xyz_true, w_true, Lbox, bins, N_dim=3, nthreads=16):
+def get_jack_corr(pos, dT, Lbox, bins, N_dim=3, nthreads=16, tau=None, pos2=None, bias2=None):
     
     # bins for the correlation function
     N_bin = len(bins)
     bin_centers = (bins[:-1] + bins[1:])/2.
-    true_max = xyz_true.max()
-    true_min = xyz_true.min()
+    true_max = pos.max()
+    true_min = pos.min()
+
+    if pos2 is not None:
+        assert pos2.shape[0] == pos.shape[0], "Not implemented"
     
     if true_max > Lbox or true_min < 0.:
         print("NOTE: we are wrapping positions")
-        xyz_true = xyz_true % Lbox
+        pos = pos % Lbox
 
     # empty arrays to record data
-    Corr_true = np.zeros((N_bin-1, N_dim**3))
+    PV = np.zeros((N_bin-1, N_dim**3))
     for i_x in range(N_dim):
         for i_y in range(N_dim):
             for i_z in range(N_dim):
                 print(i_x, i_y, i_z)
-                xyz_true_jack = xyz_true.copy()
-                w_true_jack = w_true.copy()
+                pos_jack = pos.copy()
+                dT_jack = dT.copy()
+                if pos2 is not None:
+                    pos2_jack = pos.copy()
+                if bias2 is not None:
+                    bias2_jack = bias2.copy()
+                if tau is not None:
+                    tau_jack = tau.copy()
                 
                 xyz = np.array([i_x,i_y,i_z],dtype=int)
                 size = Lbox/N_dim
 
-                bool_arr = np.prod((xyz == (xyz_true/size).astype(int)),axis=1).astype(bool)
-                xyz_true_jack[bool_arr] = np.array([0.,0.,0.])
-                xyz_true_jack = xyz_true_jack[np.sum(xyz_true_jack,axis=1)!=0.]
-                w_true_jack[bool_arr] = -1
-                w_true_jack = w_true_jack[np.abs(w_true_jack+1) > 1.e-6]
-
+                bool_arr = np.prod((xyz == (pos/size).astype(int)),axis=1).astype(bool)
+                pos_jack[bool_arr] = np.array([0.,0.,0.])
+                pos_jack = pos_jack[np.sum(pos_jack,axis=1)!=0.]
+                dT_jack[bool_arr] = -1
+                dT_jack = dT_jack[np.abs(dT_jack+1) > 1.e-6]
+                if pos2 is not None:
+                    pos2_jack[bool_arr] = np.array([0.,0.,0.])
+                    pos2_jack = pos2_jack[np.sum(pos2_jack,axis=1)!=0.]
+                if bias2 is not None:
+                    bias2_jack[bool_arr] = -1
+                    bias2_jack = bias2_jack[np.abs(bias2_jack+1) > 1.e-6]
+                if tau is not None:
+                    tau_jack[bool_arr] = -1
+                    tau_jack = tau_jack[np.abs(tau_jack+1) > 1.e-6]
+                
                 # in case we don't have weights
-                xi_true = numba_pairwise_vel(xyz_true_jack, w_true_jack, box=Lbox, Rmax=np.max(rbins), nbin=len(rbins)-1, corrfunc=False, nthread=nthread, periodic=False)['pairwise']
-                Corr_true[:,i_x+N_dim*i_y+N_dim**2*i_z] = xi_true
+                #pv = numba_pairwise_vel(pos_jack, dT_jack, box=Lbox, Rmax=np.max(rbins), nbin=len(rbins)-1, corrfunc=False, nthread=nthread, periodic=False)['pairwise']
+                pv = pairwise_vel(pos_jack, dT_jack, rbins, nthread, periodic=False, box=None, tau=tau_jack, pos2=pos2_jack, bias2=bias2_jack)
+                PV[:, i_x+N_dim*i_y+N_dim**2*i_z] = pv
     
     # compute mean and error
-    Corr_mean_true = np.mean(Corr_true, axis=1)
-    Corr_err_true = np.sqrt(N_dim**3-1)*np.std(Corr_true, axis=1)
+    PV_mean = np.mean(PV, axis=1)
+    PV_err = np.sqrt(N_dim**3-1)*np.std(PV, axis=1)
 
-    return Corr_mean_true, Corr_err_true, bin_centers
-
+    return PV_mean, PV_err, bin_centers
 
 # load galaxy information
 N_gal = 30000
@@ -146,7 +166,8 @@ def get_bias(Mvirs, redshifts):
     """ get bias as a function of halo mass (units Modot/h) and redshift """
     #nu = peaks.peakHeight(M, z)
     #b = bias.haloBiasFromNu(nu, model = 'sheth01')
-    b = bias.haloBias(Mvirs, model='tinker10', z=redshifts, mdef='200m')#mdef='vir')
+    #b = bias.haloBias(Mvirs, model='tinker10', z=redshifts, mdef='200m')
+    b = bias.haloBias(Mvirs, model='tinker10', z=redshifts, mdef='500c')
     return b
 
 def get_tau_theory(M_star, M_vir, d_A=1.):
@@ -159,19 +180,22 @@ def get_tau_theory(M_star, M_vir, d_A=1.):
 
 bias = get_bias(mhalo, redshift)
 tau = get_tau_theory(mstar, mhalo)
+print("tau mean = ", tau.mean())
+print("bias mean = ", bias.mean())
+pos2 = pos.copy()
+bias2 = bias.copy()
 
-print(pos[:, 0].min(), pos[:, 1].min(), pos[:, 2].min(), pos[:, 0].max(), pos[:, 1].max(), pos[:, 2].max(), delta_Ts.min(), delta_Ts.max(), delta_Ts.mean())
 t = time.time()
-#delta_Ts = np.ones_like(delta_Ts)
-#pos = np.random.rand(pos.shape[0], pos.shape[1])*205.
-table = numba_pairwise_vel(pos, delta_Ts, box=None, Rmax=np.max(rbins), nbin=len(rbins)-1, corrfunc=False, nthread=nthread, periodic=False)
-DD = table['npairs']
-PV = table['pairwise']
+#table = numba_pairwise_vel(pos, delta_Ts, box=None, Rmax=np.max(rbins), nbin=len(rbins)-1, corrfunc=False, nthread=nthread, periodic=False)
+#DD = table['npairs']
+#PV = table['pairwise']
+PV = pairwise_vel(pos, delta_Ts, rbins, nthread, periodic=False, box=None, tau=tau, pos2=pos2, bias2=bias2)
 print("calculation took = ", time.time()-t)
 
 want_error = 1
 if want_error:
-    PV_mean, PV_err, _ = get_jack_corr(pos, delta_Ts, Lbox, rbins, N_dim=3, nthreads=nthread)
+    #PV_mean, PV_err, _ = get_jack_corr(pos, delta_Ts, Lbox, rbins, N_dim=3, nthreads=nthread)
+    PV_mean, PV_err, _ = get_jack_corr(pos, delta_Ts, Lbox, rbins, N_dim=3, nthreads=nthread, tau=tau, pos2=pos2, bias2=bias2)
     print("chi2, dof = ", np.sum((PV/PV_err)**2.), len(PV_mean))
     plt.plot(rbinc, np.zeros(len(rbinc)), ls='--')
     plt.errorbar(rbinc, -PV, yerr=PV_err)
