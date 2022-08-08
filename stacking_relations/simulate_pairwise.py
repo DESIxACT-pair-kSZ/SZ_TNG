@@ -12,6 +12,8 @@ from colossus.lss import bias
 
 from tools import extractStamp, calc_T_AP#, get_tzav_fast
 from estimator import pairwise_vel_asymm as pairwise_vel
+from colossus.cosmology import cosmology
+
 
 # physics constants in cgs
 m_p = 1.6726e-24 # g
@@ -24,6 +26,23 @@ Mpc_to_cm = kpc_to_cm*1000. # 3.086e+24 cm
 solar_mass = 1.989e33 # g
 sigma_T_over_m_p = sigma_T / m_p
 solar_mass_over_Mpc_to_cm_squared = solar_mass/Mpc_to_cm**2
+
+# cosmological parameters
+wb = 0.02225
+wc = 0.1198
+s8 = 0.83
+ns = 0.964
+h = 67.3/100.
+COSMO_DICT = {'h': h,
+              'omega_b': wb,
+              'omega_cdm': wc,
+              'A_s': 2.100549e-09, # doesn't affect calculation
+              #'sigma8': s8,
+              'n_s': ns}
+colossus_cosmo = {'flat': True, 'H0': h*100., 'Om0': (wb+wc)/h**2, 'Ob0': wb/h**2, 'sigma8': s8, 'ns': ns}
+cosmo = cosmology.setCosmology('TNG_cosmo', colossus_cosmo)
+
+
 
 def get_jack_corr(pos, dT, Lbox, bins, N_dim=3, nthreads=16, tau=None, pos2=None, bias2=None):
     
@@ -94,17 +113,17 @@ redshift = 0.5
 aperture_mode = "r500"
 #aperture_mode = "fixed"
 theta_arcmin = 2.1 # 1.3
+data_dir = "/mnt/marvin1/boryanah/SZ_TNG/"
 if aperture_mode == "r500":
-    data_fn = f"data/galaxies_AP{aperture_mode}_top{N_gal:d}_{orientation}_{snapshot:d}_fp.npz"
+    data_fn = f"{data_dir}/galaxies_AP{aperture_mode}_top{N_gal:d}_{orientation}_{snapshot:d}_fp.npz"
 else:
-    data_fn = f"data/galaxies_th{theta_arcmin:.1f}_top{N_gal:d}_{orientation}_{snapshot:d}_fp.npz"
+    data_fn = f"{data_dir}/galaxies_th{theta_arcmin:.1f}_top{N_gal:d}_{orientation}_{snapshot:d}_fp.npz"
 data = np.load(data_fn)
 h = 0.6774
 #mstar = data['mstar']/h
+mhalo = data['mstar']/h
 ra = data['RA']
 dec = data['DEC']
-mstar = np.load('mstar.npy')/h # Msun
-mhalo = np.load('mhalo.npy')/h # Msun
 pos = data['pos']/1000. # cMpc/h
 
 # set up cosmology
@@ -114,9 +133,7 @@ H_z = cosmo.H(redshift).value
 print("H(z) = ", H_z)
 
 
-#vel = data['vel'] # km/s
-# TESTING
-vel = np.load('vel.npy') # km/s
+vel = data['vel'] # km/s
 pos[:, 2] += vel[:, 2]*(1.+redshift)/H_z*h
 tau_disk_mean = data['tau_disks']
 y_disk_mean = data['y_disks']
@@ -132,8 +149,9 @@ mmin = 1.e12
 mmax = 1.e15
 choice = (mhalo < mmax) & (mhalo > mmin)
 print("number of clusters = ", np.sum(choice))
-mstar = mstar[choice]
+#mstar = mstar[choice]
 mhalo = mhalo[choice]
+mstar = mhalo*0.
 ra = ra[choice]
 dec = dec[choice]
 pos = pos[choice]

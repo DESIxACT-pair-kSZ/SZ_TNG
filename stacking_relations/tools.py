@@ -8,7 +8,6 @@ from pixell import enmap, enplot, utils
 import rotfuncs
 
 
-
 def cutoutGeometry(projCutout='cea', rApMaxArcmin=6., resCutoutArcmin=0.25, test=False):
     '''Create enmap for the cutouts to be extracted.
     Returns a null enmap object with the right shape and wcs.
@@ -90,8 +89,8 @@ def calc_T_AP(imap, rad_arcmin, test=False, mask=None, divmap=None):
         if (np.sum(mask[inner]) == 0.) or (np.sum(mask[outer]) == 0.):
             return 0.
         else:
-            flux_inner = np.sum(imap[inner]*mask[inner])#/np.sum(mask[inner])
-            flux_outer = np.sum(imap[outer]*mask[outer])#/np.sum(mask[outer])
+            flux_inner = np.sum(imap[inner]*mask[inner])/np.sum(mask[inner])
+            flux_outer = np.sum(imap[outer]*mask[outer])/np.sum(mask[outer])
             flux_inner_std = np.sqrt(np.sum((imap[inner]*mask[inner]-flux_inner)**2)/np.sum(mask[inner]))
             flux_outer_std = np.sqrt(np.sum((imap[outer]*mask[outer]-flux_outer)**2)/np.sum(mask[outer]))
             if divmap is not None:

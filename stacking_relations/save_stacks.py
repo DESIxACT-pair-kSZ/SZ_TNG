@@ -150,8 +150,6 @@ elif galaxy_choice == "halo_mass":
     mstar = Group_M_Crit500[i_sort] # not mstar!
     print(f"lowest halo mass = {np.min(mstar):.2e}")
 
-np.save("vel.npy", vel) # TESTING!!!!!!!!!!!!
-quit()
 # convert comoving distance to redshift
 pos_deg = (pos*cell_size_deg/cell_size) # degrees
 DEC = pos_deg[:, 0]
@@ -247,7 +245,8 @@ for i in range(len(RA)):
     b_inns[i] = b_inn
     b_outs[i] = b_out
     if i % 100 == 0: print("i, ra, dec, inner, outer, std = ", i, RA[i], DEC[i], tau_inn, tau_out, y_inn, y_out, b_inn, b_out)
+data_dir = "/mnt/marvin1/boryanah/SZ_TNG/"
 if aperture_mode == "r500":
-    np.savez(f"data/galaxies_AP{aperture_mode}_top{N_gal:d}_{orientation}_{snapshot:d}_fp.npz", RA=RA, DEC=DEC, mstar=mstar, pos=pos, vel=vel, tau_disks=tau_inns, tau_rings=tau_outs, y_disks=y_inns, y_rings=y_outs, b_disks=b_inns, b_rings=b_outs)
+    np.savez(f"{data_dir}/galaxies_AP{aperture_mode}_top{N_gal:d}_{orientation}_{snapshot:d}_fp.npz", RA=RA, DEC=DEC, mstar=mstar, pos=pos, vel=vel, tau_disks=tau_inns, tau_rings=tau_outs, y_disks=y_inns, y_rings=y_outs, b_disks=b_inns, b_rings=b_outs)
 elif aperture_mode == "fixed":
-    np.savez(f"data/galaxies_th{theta_arcmin:.1f}_top{N_gal:d}_{orientation}_{snapshot:d}_fp.npz", RA=RA, DEC=DEC, mstar=mstar, pos=pos, vel=vel, tau_disks=tau_inns, tau_rings=tau_outs, y_disks=y_inns, y_rings=y_outs, b_disks=b_inns, b_rings=b_outs)
+    np.savez(f"{data_dir}/galaxies_th{theta_arcmin:.1f}_top{N_gal:d}_{orientation}_{snapshot:d}_fp.npz", RA=RA, DEC=DEC, mstar=mstar, pos=pos, vel=vel, tau_disks=tau_inns, tau_rings=tau_outs, y_disks=y_inns, y_rings=y_outs, b_disks=b_inns, b_rings=b_outs)
