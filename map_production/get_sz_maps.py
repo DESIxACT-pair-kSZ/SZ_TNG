@@ -39,7 +39,7 @@ if sim_name == "TNG300":
 elif sim_name == "MNTG":
     snaps, _, zs, _ = np.loadtxt(os.path.expanduser("~/repos/hydrotools/hydrotools/data/snaps_illustris_mtng.txt"), skiprows=1, unpack=True)
 snaps = snaps.astype(int)
-snapshots = [78, 91, 59]#[67]#[91, 84, 78, 72, 67, 63, 59, 56, 53, 50]
+snapshots = [84, 72, 63]#, 56, 53, 50]#[78, 91, 59]#[67]#[91, 84, 78, 72, 67, 63, 59, 56, 53, 50]
 # 99, 91, 84, 78, 72, 67, 63, 59, 56, 53, 50
 # 0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.79, 0.89, 1.
 

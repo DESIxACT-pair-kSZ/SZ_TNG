@@ -54,7 +54,7 @@ elif sim_name == "MNTG":
     snaps, _, zs, _ = np.loadtxt(os.path.expanduser("~/repos/hydrotools/hydrotools/data/snaps_illustris_mtng.txt"), skiprows=1, unpack=True)
     Lbox = 500.
 snaps = snaps.astype(int)
-snapshots = [63, 59, 56, 53, 50]
+snapshots = [84, 72, 63]#[78, 91, 59]#[67]#[63, 59, 56, 53, 50]
 # 99, 91, 84, 78, 72, 67, 63, 59, 56, 53, 50
 # 0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.79, 0.89, 1.
 
@@ -128,4 +128,26 @@ for snapshot in snapshots:
         plt.figure(figsize=(16,14))
         plt.imshow((1+b_beam_xy), vmin=(1+mean_b_xy-4.*std_b_xy), vmax=(1+mean_b_xy+4.*std_b_xy))
         plt.savefig(f"figs/b_beam_{dirs[i]:s}_snap{snapshot}.png")
+        plt.close()
+
+        # load tau map
+        tau_xy = np.load(f"{save_dir}/tau_{dirs[i]:s}_snap_{snapshot:d}.npy")
+        print("tau_xy = ", tau_xy[:10])
+
+        # smooth with beam
+        tau_beam_xy = get_smooth_density(tau_xy, fwhm, Lbox, N_dim)
+        np.save(f"{save_dir}/tau_beam{fwhm:.1f}_{dirs[i]:s}_snap_{snapshot:d}.npy", tau_beam_xy)
+        std_tau_xy = tau_beam_xy.std()
+        mean_tau_xy = tau_beam_xy.mean() 
+    
+        # plot and save unbeamed
+        plt.figure(figsize=(16,14))
+        plt.imshow((1+tau_xy), vmin=(1+mean_tau_xy-4.*std_tau_xy), vmax=(1+mean_tau_xy+4.*std_tau_xy))
+        plt.savefig(f"figs/tau_{dirs[i]:s}_snap{snapshot}.png")
+        plt.close()
+
+        # plot and save beamed
+        plt.figure(figsize=(16,14))
+        plt.imshow((1+tau_beam_xy), vmin=(1+mean_tau_xy-4.*std_tau_xy), vmax=(1+mean_tau_xy+4.*std_tau_xy))
+        plt.savefig(f"figs/tau_beam_{dirs[i]:s}_snap{snapshot}.png")
         plt.close()
