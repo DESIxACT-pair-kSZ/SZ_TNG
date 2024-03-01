@@ -4,8 +4,8 @@ from numba import njit
 from nbodykit.lab import ArrayCatalog, FieldMesh
 #from nbodykit.base.mesh import MeshFilter
 
-from pixell import enmap, enplot, utils
-import rotfuncs
+#from pixell import enmap, enplot, utils
+#import rotfuncs
 
 
 @njit(nogil=True, parallel=False)

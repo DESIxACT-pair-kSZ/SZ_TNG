@@ -34,14 +34,14 @@ unit_dens = 1.e10*(solar_mass/h)/(kpc_to_cm/h)**3 # g/cm**3 # note density has u
 unit_vol = (kpc_to_cm/h)**3
 
 # simulation choices
-#sim_name = "MTNG"
+sim_name = "MTNG"
 #sim_name = "TNG300"
-sim_name = "CAMELS";which_sim = "EX_3"
+#sim_name = "CAMELS";which_sim = "EX_3"
 if sim_name == "TNG300":
     snaps, _, zs, _ = np.loadtxt(os.path.expanduser("~/repos/hydrotools/hydrotools/data/snaps_illustris_tng205.txt"), skiprows=1, unpack=True)
 elif sim_name == "CAMELS":
     snaps, _, zs, _ = np.loadtxt(os.path.expanduser("~/repos/hydrotools/hydrotools/data/snaps_illustris_camels.txt"), skiprows=1, unpack=True)
-elif sim_name == "MNTG":
+elif sim_name == "MTNG":
     snaps, _, zs, _ = np.loadtxt(os.path.expanduser("~/repos/hydrotools/hydrotools/data/snaps_illustris_mtng.txt"), skiprows=1, unpack=True)
 snaps = snaps.astype(int)
 # 99, 91, 84, 78, 72, 67, 63, 59, 56, 53, 50
@@ -54,6 +54,7 @@ for i, red in enumerate(redshifts):
     ind = np.argmin(np.abs(red - zs))
     snapshots[i] = snaps[ind]
 print(snapshots)
+snapshots = [264, 237, 214, 179]
 
 # simulation info
 if sim_name == "TNG300":
@@ -66,7 +67,7 @@ elif sim_name == "CAMELS":
     n_chunks = 1
     #save_dir = "/n/holystore01/LABS/hernquist_lab/Everyone/bhadzhiyska/SZ_TNG/" # cannon
     save_dir = f"/n/holylfs05/LABS/hernquist_lab/Everyone/boryanah/SZ_TNG/CAMELS/{which_sim}/" # cannon
-elif sim_name == "MNTG":
+elif sim_name == "MTNG":
     basePath = "/virgotng/mpa/MTNG/Hydro-Arepo/MTNG-L500-4320-A/output/"
     n_chunks = 640
     save_dir = "/freya/ptmp/mpa/boryanah/data_sz/" # virgo
@@ -93,7 +94,7 @@ for snapshot in snapshots:
             hfile = h5py.File(basePath+f'snapdir_{snapshot:03d}/snap_{snapshot:03d}.{i:d}.hdf5')[PartType]
         elif sim_name == "CAMELS":
             hfile = h5py.File(basePath+f'snap_{snapshot:03d}.hdf5')[PartType]
-        elif sim_name == "MNTG":
+        elif sim_name == "MTNG":
             hfile = h5py.File(basePath+f'snapdir_{snapshot:03d}/snapshot_{snapshot:03d}.{i:d}.hdf5')[PartType]
         #print(list(hfile.keys()))
 
@@ -125,9 +126,10 @@ for snapshot in snapshots:
         dV = dV[choice]
         C = C[choice]
         print("mean temperature = ", np.mean(Te))
-    
+        
         # save all fields of interest
         np.save(f"{save_dir}/temperature_chunk_{i:d}_snap_{snapshot:d}.npy", Te.astype(np.float32))
+        np.save(f"{save_dir}/mass_chunk_{i:d}_snap_{snapshot:d}.npy", M.astype(np.float32))
         np.save(f"{save_dir}/number_density_chunk_{i:d}_snap_{snapshot:d}.npy", ne.astype(np.float32))
         np.save(f"{save_dir}/velocity_chunk_{i:d}_snap_{snapshot:d}.npy", Ve.astype(np.float32))
         np.save(f"{save_dir}/volume_chunk_{i:d}_snap_{snapshot:d}.npy", dV.astype(np.float32))

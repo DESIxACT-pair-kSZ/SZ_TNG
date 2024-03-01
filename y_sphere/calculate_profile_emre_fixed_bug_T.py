@@ -20,13 +20,12 @@ from numba import njit
 
 from mpi4py import MPI
 """
-mpirun -np 16 python calculate_profile_combo.py 16 1.0
-mpirun -np 16 python calculate_profile_combo.py 16 0.5
-mpirun -np 16 python calculate_profile_combo.py 16 0.25
-mpirun -np 16 python calculate_profile_combo.py 16 0.0
+mpirun -np 32 python calculate_profile_combo_old.py 32 1.0 # 179 kinda exist (no rank 0)
+mpirun -np 32 python calculate_profile_emre_fixed_bug_T.py 32 0.5; mpirun -np 32 python calculate_profile_emre_fixed_bug_T.py 32 0.25; mpirun -np 32 python calculate_profile_emre_fixed_bug_T.py 32 0.0
 """
-# let me think so we need the randoms in 3d
-myrank = MPI.COMM_WORLD.Get_rank()
+
+myrank = MPI.COMM_WORLD.Get_rank() # TESTING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#myrank = 1
 n_ranks = int(sys.argv[1])
 print("myrank", myrank)
 
@@ -71,9 +70,9 @@ def calc_sums(dV, P_chunk, Te, ne, inds_arr, starts):
     Ns = np.zeros(N, dtype=np.float32)
     for p in numba.prange(N):
         Vs[p] = np.sum(dV[inds_arr[starts[p]:starts[p+1]]])
-        Ps[p] = np.sum(dV[inds_arr[starts[p]:starts[p+1]]]*P_chunk[inds_arr[starts[p]:starts[p+1]]])
+        Ps[p] = np.sum(P_chunk[inds_arr[starts[p]:starts[p+1]]])
         Ts[p] = np.sum(Te[inds_arr[starts[p]:starts[p+1]]])
-        ns[p] = np.sum(dV[inds_arr[starts[p]:starts[p+1]]]*ne[inds_arr[starts[p]:starts[p+1]]])
+        ns[p] = np.sum(ne[inds_arr[starts[p]:starts[p+1]]])
         Ns[p] = starts[p+1] - starts[p]
     return Vs, Ps, Ts, ns, Ns
 
@@ -92,7 +91,7 @@ elif sim_name == "CAMELS":
 elif sim_name == "MTNG":
     basePath = "/virgotng/mpa/MTNG/Hydro-Arepo/MTNG-L500-4320-A/output/"
     n_chunks = 640
-    save_dir = "/freya/ptmp/mpa/boryanah/data_sz/" # virgo
+    save_dir = "/freya/ptmp/mpa/boryanah/data_sz/old/" # virgo #TESTING!!!!!!!!!!!!!
 PartType = 'PartType0' # gas cells
 os.makedirs(save_dir, exist_ok=True)
 
@@ -154,37 +153,20 @@ print(m200cs[-10:], np.sum(m200cs == 0.), r200cs[np.argmin(m200cs)], np.argmin(m
 print(f"lowest mass {np.min(m200cs):.3e}")
 sys.stdout.flush()
 
-# randoms
-np.random.seed(300)
-inds_x = np.arange(len(i_sort))
-inds_y = np.arange(len(i_sort))
-inds_z = np.arange(len(i_sort))
-np.random.shuffle(inds_x)
-np.random.shuffle(inds_y)
-np.random.shuffle(inds_z)
-N_rand = 5000
-inds_x = inds_x[:N_rand]
-inds_y = inds_y[:N_rand]
-inds_z = inds_z[:N_rand]
-rand_poss = np.vstack((poss[inds_x, 0], poss[inds_y, 1], poss[inds_z, 2])).T
-#rand_rbins = np.geomspace(0.05, 50., 11)*1.e3 # ckpc/h
-rand_rbins = np.array([1., 10., 20., 30.])*1.e3 # ckpc/h
 
 # bins for getting profiles
-#rbins = np.logspace(-1., 1.7, 26) # ratio
+#rbins = np.logspace(-2, 1.7, 26) # ratio
 #rbins = np.logspace(1., 1.75, 6) # ratio
-rbins = np.logspace(1., 1.6, 3) # ratio
-#rbins = np.logspace(-2, 1., 21) # ratio og
+#rbins = np.logspace(1., 1.6, 3) # ratio
+rbins = np.logspace(-2, 1., 21) # ratio og
 
 # initialize arrays for each mass bin and each r bins
 P_e = np.zeros((len(i_sort), len(rbins)-1), dtype=np.float32)
 n_e = np.zeros((len(i_sort), len(rbins)-1), dtype=np.float32)
+m_g = np.zeros((len(i_sort), len(rbins)-1), dtype=np.float32)
 T_e = np.zeros((len(i_sort), len(rbins)-1), dtype=np.float32)
 N_v = np.zeros((len(i_sort), len(rbins)-1), dtype=np.float32)
 V_d = np.zeros((len(i_sort), len(rbins)-1), dtype=np.float32)
-rand_n_e = np.zeros((N_rand, len(rand_rbins)-1), dtype=np.float32)
-rand_P_e = np.zeros((N_rand, len(rand_rbins)-1), dtype=np.float32)
-rand_V_d = np.zeros((N_rand, len(rand_rbins)-1), dtype=np.float32)
 
 # for the parallelizing
 n_jump = n_chunks//n_ranks
@@ -192,7 +174,7 @@ assert n_chunks % n_ranks == 0
 
 # randomize it because the tree building takes too long
 inds_chunks = np.arange(n_chunks)
-np.random.shuffle(inds_chunks)
+#np.random.shuffle(inds_chunks) # I think we didn't have it before
 inds_rank = inds_chunks[myrank*n_jump: (myrank+1)*n_jump]
 
 # for each chunk, find which halos are part of it
@@ -228,7 +210,7 @@ for i in range(len(inds_rank)):
     Te = (gamma - 1.)*IE/k_B * 4*m_p/(1 + 3*X_H + 4*X_H*EA) * unit_c # K
     ne = EA*X_H*D/m_p # ccm^-3
     #Ve = V*np.sqrt(a) # km/s
-    del EA, IE, M; gc.collect()
+    del EA, IE; gc.collect()
     print("mean temperature, redshift = ", np.mean(Te), redshift)
         
     # pressure of each voxel
@@ -241,70 +223,49 @@ for i in range(len(inds_rank)):
     tree = spatial.cKDTree(C, boxsize=Lbox_hkpc)
     print("built tree in", time.time()-t)
     sys.stdout.flush()
-
-    """
-    # TESTING!!!!!!!!!!!!!!!!!! 
+    
     t = time.time()
-    for k in range(-1, len(rbins)-1):
-        t1 = time.time()
-        inds = tree.query_ball_point(poss, r200cs*rbins[k+1], workers=16)
-        print("querying", time.time()-t1)
-        t1 = time.time()
-        lens = tree.query_ball_point(poss, r200cs*rbins[k+1], workers=16, return_length=True)
-        starts = np.zeros(len(i_sort)+1, dtype=np.int64)
-        starts[1:] = np.cumsum(lens)
-        inds = np.fromiter(itertools.chain.from_iterable(inds), count=starts[-1], dtype=np.int64)
-        
-        print("concat in", time.time()-t1)
-        print(inds.shape, starts.shape)
-        t1 = time.time()
-        V_outer, P_outer, T_outer, n_outer, N_outer = calc_sums(dV, P_chunk, Te, ne, inds, starts)
-        print("calc sums in", time.time()-t1)
-        del inds; gc.collect()
-        
-        if k >= 0:
-            V_d[:, k] += (V_outer - V_inner)
-            P_e[:, k] += (P_outer - P_inner)
-            T_e[:, k] += (T_outer - T_inner)
-            n_e[:, k] += (n_outer - n_inner)
-            N_v[:, k] += (N_outer - N_inner)
-            
-        V_inner = V_outer
-        P_inner = P_outer
-        T_inner = T_outer
-        n_inner = n_outer
-        N_inner = N_outer
-    print("time new", time.time()-t)
-    """
+    # loop over all halos of interest
+    for j in range(len(i_sort)):
+        # relevant halo quantities
+        pos = poss[j] # ckpc/h
+        r200c = r200cs[j] # ckpc/h
+        m200c = m200cs[j]/h # Msun
+        vbins = 4/3.*np.pi*(rbins*r200c)**3 # (ckpc/h)^3
+        dvols = vbins[1:]-vbins[:-1]
 
-    t = time.time()
-    # mass bin and radial bin
-    for k in range(-1, len(rand_rbins)-1):
-        inds = tree.query_ball_point(rand_poss, rand_rbins[k+1], workers=16)
-        t1 = time.time()
-        lens = tree.query_ball_point(rand_poss, rand_rbins[k+1], workers=16, return_length=True)
-        starts = np.zeros(N_rand+1, dtype=np.int64)
-        starts[1:] = np.cumsum(lens)
-        inds = np.fromiter(itertools.chain.from_iterable(inds), count=starts[-1], dtype=np.int64)
-        
-        print("concat in", time.time()-t1)
-        print(inds.shape, starts.shape)
-        t1 = time.time()
-        V_outer, P_outer, T_outer, n_outer, N_outer = calc_sums(dV, P_chunk, Te, ne, inds, starts)
-        print("calc sums in", time.time()-t1)
-        del inds; gc.collect()
-        
-        if k >= 0:
-            rand_V_d[:, k] += (V_outer - V_inner)
-            rand_P_e[:, k] += (P_outer - P_inner)
-            rand_n_e[:, k] += (n_outer - n_inner)
+        # mass bin and radial bin
+        for k in range(-1, len(rbins)-1):
+            inds = np.asarray(tree.query_ball_point(pos, r200c*rbins[k+1]), dtype=np.int64).flatten()
+            if len(inds) > 0:
+                V_outer = np.sum(dV[inds])
+                P_outer = np.sum(P_chunk[inds]*dV[inds])
+                T_outer = np.sum(Te[inds]*M[inds])
+                n_outer = np.sum(ne[inds]*dV[inds])
+                m_outer = np.sum(M[inds])
+                
+                if k >= 0:
+                    V_d[j, k] += (V_outer - V_inner)
+                    P_e[j, k] += (P_outer - P_inner)
+                    T_e[j, k] += (T_outer - T_inner)
+                    n_e[j, k] += (n_outer - n_inner)
+                    m_g[j, k] += (m_outer - m_inner)
+                    N_v[j, k] += len(inds) - len(inds_inner)
 
-        V_inner = V_outer
-        P_inner = P_outer
-        T_inner = T_outer
-        n_inner = n_outer
-        N_inner = N_outer
-    print("looped over randos in", time.time()-t)
+                V_inner = V_outer
+                P_inner = P_outer
+                T_inner = T_outer
+                n_inner = n_outer
+                m_inner = m_outer
+                inds_inner = inds
+            if len(inds) == 0 and k == -1:
+                P_inner = 0.
+                T_inner = 0.
+                n_inner = 0.
+                m_inner = 0.
+                V_inner = 0.
+                inds_inner = np.array([])
+    print("looped over halos in", time.time()-t)
     
 # save fields
-np.savez(f"{save_dir}/prof_sph_r200c_m200c_{mmin}Msun_snap_{snapshot:d}_rank{myrank:d}_{n_ranks:d}.npz", rbins=rbins, P_e=P_e, T_e=T_e, n_e=n_e, N_v=N_v, V_d=V_d, rand_P_e=rand_P_e, rand_n_e=rand_n_e, rand_V_d=rand_V_d, rand_rbins_hckpc=rand_rbins, inds_halo=i_sort)
+np.savez(f"{save_dir}/prof_sph_r200c_m200c_{mmin}Msun_snap_{snapshot:d}_rank{myrank:d}_{n_ranks:d}.npz", rbins=rbins, P_e=P_e, T_e=T_e, n_e=n_e, m_g=m_g,  N_v=N_v, V_d=V_d, inds_halo=i_sort)
