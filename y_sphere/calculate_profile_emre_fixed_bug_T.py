@@ -20,8 +20,7 @@ from numba import njit
 
 from mpi4py import MPI
 """
-mpirun -np 32 python calculate_profile_combo_old.py 32 1.0 # 179 kinda exist (no rank 0)
-mpirun -np 32 python calculate_profile_emre_fixed_bug_T.py 32 0.5; mpirun -np 32 python calculate_profile_emre_fixed_bug_T.py 32 0.25; mpirun -np 32 python calculate_profile_emre_fixed_bug_T.py 32 0.0
+mpirun -np 32 python calculate_profile_emre_fixed_bug_T.py 32 0.5; mpirun -np 32 python calculate_profile_emre_fixed_bug_T.py 32 0.25; mpirun -np 32 python calculate_profile_emre_fixed_bug_T.py 32 0.0; mpirun -np 32 python calculate_profile_combo_emre_fixed_bug_T.py 32 1.0 # 179 kinda exist (no rank 0)
 """
 
 myrank = MPI.COMM_WORLD.Get_rank() # TESTING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -91,7 +90,7 @@ elif sim_name == "CAMELS":
 elif sim_name == "MTNG":
     basePath = "/virgotng/mpa/MTNG/Hydro-Arepo/MTNG-L500-4320-A/output/"
     n_chunks = 640
-    save_dir = "/freya/ptmp/mpa/boryanah/data_sz/old/" # virgo #TESTING!!!!!!!!!!!!!
+    save_dir = "/freya/ptmp/mpa/boryanah/data_sz/emre/" # virgo #TESTING!!!!!!!!!!!!!
 PartType = 'PartType0' # gas cells
 os.makedirs(save_dir, exist_ok=True)
 

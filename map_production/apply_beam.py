@@ -20,7 +20,10 @@ python3 apply_beam.py 2.1 0 TNG300; python3 apply_beam.py 1.3 0 TNG300; python3 
 
 python3 apply_beam.py 2.1 0 Illustris; python3 apply_beam.py 1.3 0 Illustris; python3 apply_beam.py 2.1 1 Illustris; python3 apply_beam.py 1.3 1 Illustris;
 
-python3 apply_beam.py 1.6 0 TNG300; python3 apply_beam.py 1.6 1 TNG300; python3 apply_beam.py 1.6 0 Illustris; python3 apply_beam.py 1.6 1 Illustris
+python3 apply_beam.py 1.6 0 TNG300; python3 apply_beam.py 1.6 1 TNG300; python3 apply_beam.py 1.6 0 Illustris; python3 apply_beam.py 1.6 1 Illustris; python3 apply_beam.py 1.6 0 SIMBA; python3 apply_beam.py 1.6 1 SIMBA; 
+
+python3 apply_beam.py 1.6 0 TNG300; python3 apply_beam.py 1.6 1 TNG300; python3 apply_beam.py 2.1 0 TNG300; python3 apply_beam.py 2.1 1 TNG300
+python3 apply_beam.py 1.6 0 Illustris; python3 apply_beam.py 1.6 1 Illustris; python3 apply_beam.py 2.1 0 Illustris; python3 apply_beam.py 2.1 1 Illustris
 """
 
 def get_smooth_density(D, fwhm, Lbox, N_dim):
@@ -76,14 +79,21 @@ elif sim_name == "Illustris":
     snaps, _, zs = np.loadtxt(os.path.expanduser("~/repos/hydrotools/hydrotools/data/snaps_illustris_orig.txt"), skiprows=1, unpack=True)
     Lbox = 75.
     save_dir += "Illustris/"
+elif sim_name == "SIMBA":
+    snaps = np.array([125])
+    zs = np.array([0.5])
+    Lbox = 100.
+    save_dir = "/freya/ptmp/mpa/boryanah/SIMBA100/"
 elif sim_name == "MNTG":
     snaps, _, zs, _ = np.loadtxt(os.path.expanduser("~/repos/hydrotools/hydrotools/data/snaps_illustris_mtng.txt"), skiprows=1, unpack=True)
     Lbox = 500.
 snaps = snaps.astype(int)
 if sim_name == "Illustris":
-    snapshots = [105, 98, 92, 88] # Illustris
+    snapshots = [114]#[105, 98, 92, 88] # Illustris
 elif sim_name == "TNG300":
-    snapshots = [69, 62, 56, 52]#[84, 72, 63]#[78, 91, 59]#[67]#[63, 59, 56, 53, 50]
+    snapshots = [78]#[69, 62, 56, 52]#[84, 72, 63]#[78, 91, 59]#[67]#[63, 59, 56, 53, 50]
+elif sim_name == "SIMBA":
+    snapshots = [125]
 # 99, 91, 84, 78, 72, 67, 63, 59, 56, 53, 50
 # 0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.79, 0.89, 1.
 
@@ -101,7 +111,7 @@ else:
     # define cosmology
     h = 0.6774
     cosmo = FlatLambdaCDM(H0=h*100., Om0=0.3089, Tcmb0=2.725)
-if sim_name == "Illustris" or sim_name == "TNG100":
+if sim_name == "Illustris" or sim_name == "TNG100" or sim_name == "SIMBA":
     N_dim = 2000
 else:
     N_dim = 10000

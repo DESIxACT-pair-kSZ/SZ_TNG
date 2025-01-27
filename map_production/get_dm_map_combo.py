@@ -20,15 +20,24 @@ import illustris_python as il
 from mpi4py import MPI
 
 """
+# SIMBA100
+python get_dm_map_combo.py 1 0.5
+
 # TNG300 needs divisible by 600
 mpirun -np 30 python get_dm_map_combo.py 30 0.47; mpirun -np 30 python get_dm_map_combo.py 30 0.628; mpirun -np 30 python get_dm_map_combo.py 30 0.791; mpirun -np 30 python get_dm_map_combo.py 30 0.924;
+
+mpirun -np 30 python get_dm_map_combo.py 30 0.3
 
 # TNG100 needs divisible by 448
 mpirun -np 32 python get_dm_map_combo.py 32 0.47; mpirun -np 32 python get_dm_map_combo.py 32 0.628; mpirun -np 32 python get_dm_map_combo.py 32 0.791; mpirun -np 32 python get_dm_map_combo.py 32 0.924;
 
+
 # Illustris
 mpirun -np 32 python get_dm_map_combo.py 32 0.47; mpirun -np 32 python get_dm_map_combo.py 32 0.628; mpirun -np 32 python get_dm_map_combo.py 32 0.791; mpirun -np 32 python get_dm_map_combo.py 32 0.924;
 
+mpirun -np 32 python get_dm_map_combo.py 32 0.3
+
+python get_dm_map_combo.py 1 0.3
 """
 
 myrank = MPI.COMM_WORLD.Get_rank()
@@ -51,7 +60,8 @@ solar_mass = 1.989e33 # g
 # simulation info
 #sim_name = "MTNG"
 #sim_name = "TNG300"
-sim_name = "TNG100"
+#sim_name = "TNG100"
+sim_name = "SIMBA"
 #sim_name = "Illustris"
 if sim_name == "TNG300":
     #basePath = "/n/holylfs05/LABS/hernquist_lab/IllustrisTNG/Runs/L205n2500TNG/output/"
@@ -68,6 +78,10 @@ elif sim_name == "Illustris":
     basePath = "/virgotng/universe/Illustris/L75n1820FP/output/"
     n_chunks = 512
     save_dir = "/freya/ptmp/mpa/boryanah/data_sz/Illustris/" # virgo
+elif sim_name == "SIMBA":
+    basePath = "/ptmp/mpa/boryanah/SIMBA100/"
+    n_chunks = 1
+    save_dir = "/ptmp/mpa/boryanah/SIMBA100/" # virgo
 elif sim_name == "CAMELS":
     basePath = f"/n/holylfs05/LABS/hernquist_lab/Users/bhadzhiyska/CAMELS/{which_sim}/"
     n_chunks = 1
@@ -84,6 +98,10 @@ os.makedirs(save_dir, exist_ok=True)
 if sim_name == "Illustris":
     h = 0.704
     Omega_m = 0.2726
+elif sim_name == "SIMBA":
+    # Omega_m = 0.3, Omega_L = 1 − Omega_m = 0.7, Omega_b = 0.048, h = 0.68, σ8 = 0.82, ns = 0.97,
+    h = 0.68
+    Omega_m = 0.3
 else:
     h = 67.74/100.
     Omega_m = 0.3089
@@ -108,6 +126,11 @@ elif sim_name == "Illustris":
     snaps, _, zs = np.loadtxt(os.path.expanduser("~/repos/hydrotools/hydrotools/data/snaps_illustris_orig.txt"), skiprows=1, unpack=True)
     snaps = snaps.astype(int)
     Lbox_hkpc = 75000. # ckpc/h
+
+elif sim_name == "SIMBA":
+    snaps = np.array([125, 134])
+    zs = np.array([0.5, 0.3])
+    Lbox_hkpc = 100000. # ckpc/h
     
 elif sim_name == "MTNG":
     snaps, _, zs, _ = np.loadtxt(os.path.expanduser("~/repos/hydrotools/hydrotools/data/snaps_illustris_mtng.txt"), skiprows=1, unpack=True)
@@ -141,6 +164,8 @@ else:
     # for the histograming
     if sim_name == "Illustris":
         nbins = 2001
+    elif sim_name == "SIMBA":
+        nbins = 2001
     elif sim_name == "TNG100":
         nbins = 2001
     else:
@@ -171,6 +196,8 @@ for i in range(myrank*n_jump, (myrank+1)*n_jump):
         hfile = h5py.File(basePath+f'snapdir_{snapshot:03d}/snap_{snapshot:03d}.{i:d}.hdf5')[PartType]
     elif sim_name == "Illustris":
         hfile = h5py.File(basePath+f'snapdir_{snapshot:03d}/snap_{snapshot:03d}.{i:d}.hdf5')[PartType]
+    elif sim_name == "SIMBA":
+        hfile = h5py.File(basePath+f'snap_m100n1024_{snapshot:03d}.hdf5')[PartType]
     elif sim_name == "CAMELS":
         hfile = h5py.File(basePath+f'snap_{snapshot:03d}.hdf5')[PartType]
     elif sim_name == "MTNG":

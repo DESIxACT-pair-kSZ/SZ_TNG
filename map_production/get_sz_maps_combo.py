@@ -23,15 +23,31 @@ from mpi4py import MPI
 mpirun -np 16 python get_sz_maps_combo.py 16 1.0; mpirun -np 16 python get_sz_maps_combo.py 16 0.5; mpirun -np 16 python get_sz_maps_combo.py 16 0.0
 #mpirun -np 16 python get_sz_maps_combo.py 16 0.25
 
+python get_sz_maps_combo.py 1 0.5
+
+
+# SIMBA100
+python get_sz_maps_combo.py 1 0.5
 
 # TNG300 (600 chunks)
 mpirun -np 30 python get_sz_maps_combo.py 30 0.47; mpirun -np 30 python get_sz_maps_combo.py 30 0.628; mpirun -np 30 python get_sz_maps_combo.py 30 0.791; mpirun -np 30 python get_sz_maps_combo.py 30 0.924
+
+mpirun -np 30 python get_sz_maps_combo.py 30 0.3
 
 # TNG100
 mpirun -np 32 python get_sz_maps_combo.py 32 0.47; 
 
 # Illustris (512)
 mpirun -np 32 python get_sz_maps_combo.py 32 0.47; mpirun -np 32 python get_sz_maps_combo.py 32 0.628; mpirun -np 32 python get_sz_maps_combo.py 32 0.791; mpirun -np 32 python get_sz_maps_combo.py 32 0.924
+
+# MTNG
+mpirun -np 32 python get_sz_maps_combo.py 32 0.; mpirun -np 32 python get_sz_maps_combo.py 32 0.5; mpirun -np 32 python get_sz_maps_combo.py 32 1.0
+
+
+mpirun -np 32 python get_sz_maps_combo.py 32 0.3 Illustris
+mpirun -np 30 python get_sz_maps_combo.py 30 0.3 TNG300
+
+python get_sz_maps_combo.py 1 0.3 SIMBA
 """
 
 myrank = MPI.COMM_WORLD.Get_rank()
@@ -51,11 +67,17 @@ const = k_B*sigma_T/(m_e*c**2) # cm^2/K
 kpc_to_cm = ((1.*u.kpc).to(u.cm)).value # cm
 solar_mass = 1.989e33 # g
 
+# map types
+map_types = ["tau", "Y_compton", "b"]
+#map_types = ["tau"]
+
 # simulation info
-sim_name = "MTNG"
+#sim_name = "MTNG"
+#sim_name = "SIMBA"
 #sim_name = "TNG300"
 #sim_name = "TNG100"
 #sim_name = "Illustris"
+sim_name = sys.argv[3]
 if sim_name == "TNG300":
     #basePath = "/n/holylfs05/LABS/hernquist_lab/IllustrisTNG/Runs/L205n2500TNG/output/"
     basePath = "/virgotng/universe/IllustrisTNG/L205n2500TNG/output/"
@@ -76,6 +98,10 @@ elif sim_name == "CAMELS":
     n_chunks = 1
     #save_dir = "/n/holystore01/LABS/hernquist_lab/Everyone/bhadzhiyska/SZ_TNG/" # cannon
     save_dir = f"/n/holylfs05/LABS/hernquist_lab/Everyone/boryanah/SZ_TNG/CAMELS/{which_sim}/" # cannon
+elif sim_name == "SIMBA":
+    basePath = "/ptmp/mpa/boryanah/SIMBA100/"
+    n_chunks = 1
+    save_dir = "/ptmp/mpa/boryanah/SIMBA100/" # virgo
 elif sim_name == "MTNG":
     basePath = "/virgotng/mpa/MTNG/Hydro-Arepo/MTNG-L500-4320-A/output/"
     n_chunks = 640
@@ -109,6 +135,11 @@ elif sim_name == "Illustris":
     snaps, _, zs = np.loadtxt(os.path.expanduser("~/repos/hydrotools/hydrotools/data/snaps_illustris_orig.txt"), skiprows=1, unpack=True)
     snaps = snaps.astype(int)
     Lbox_hkpc = 75000. # ckpc/h
+
+elif sim_name == "SIMBA":
+    snaps = np.array([125, 134])
+    zs = np.array([0.5, 0.3])
+    Lbox_hkpc = 100000. # ckpc/h
     
 elif sim_name == "MTNG":
     snaps, _, zs, _ = np.loadtxt(os.path.expanduser("~/repos/hydrotools/hydrotools/data/snaps_illustris_mtng.txt"), skiprows=1, unpack=True)
@@ -131,17 +162,27 @@ assert n_chunks % n_ranks == 0
 
 # whether you want to save all arrays or just some
 want_all_dir = False
-want_3d = True
+want_3d = False #False #True
 
 if want_3d:
-    Ndim = 1080 #1024
-    y_3d = np.zeros((Ndim, Ndim, Ndim), dtype=np.float32)
-    b_xy_3d = np.zeros((Ndim, Ndim, Ndim), dtype=np.float32)
-    tau_3d = np.zeros((Ndim, Ndim, Ndim), dtype=np.float32)
+    if sim_name == "MTNG":
+        Ndim = 1620 #1620 #2160 #1080 #1024 # TESTING!!!!!!!!!
+    elif sim_name == "Illustris":
+        Ndim = 910
+    else:
+        Ndim = 512
+    if "Y_compton" in map_types:
+        y_3d = np.zeros((Ndim, Ndim, Ndim), dtype=np.float32)
+    if "b" in map_types:
+        b_xy_3d = np.zeros((Ndim, Ndim, Ndim), dtype=np.float32)
+    if "tau" in map_types:
+        tau_3d = np.zeros((Ndim, Ndim, Ndim), dtype=np.float32)
     ncell = Ndim
 else:
     # for the histograming
     if sim_name == "Illustris":
+        nbins = 2001
+    elif sim_name == "SIMBA":
         nbins = 2001
     elif sim_name == "TNG100":
         nbins = 2001
@@ -178,6 +219,8 @@ for i in range(myrank*n_jump, (myrank+1)*n_jump):
         hfile = h5py.File(basePath+f'snapdir_{snapshot:03d}/snap_{snapshot:03d}.{i:d}.hdf5')[PartType]
     elif sim_name == "CAMELS":
         hfile = h5py.File(basePath+f'snap_{snapshot:03d}.hdf5')[PartType]
+    elif sim_name == "SIMBA":
+        hfile = h5py.File(basePath+f'snap_m100n1024_{snapshot:03d}.hdf5')[PartType]
     elif sim_name == "MTNG":
         hfile = h5py.File(basePath+f'snapdir_{snapshot:03d}/snapshot_{snapshot:03d}.{i:d}.hdf5')[PartType]
     #print(list(hfile.keys()))
@@ -212,16 +255,20 @@ for i in range(myrank*n_jump, (myrank+1)*n_jump):
     tau_chunk = sigma_T*(ne*dV)*unit_vol/(a*Lbox_hkpc*(kpc_to_cm/h)/ncell)**2. # unitless
     print("chunk = ", i, C[:, 0].max(), C[:, 1].max(), C[:, 2].max())
     sys.stdout.flush()
-
+    del Te, ne, Ve, D, V, dV; gc.collect()
+    
     # build kdtree
     C %= Lbox_hkpc
     #tree = spatial.cKDTree(C, boxsize=Lbox_hkpc)
     #print("built tree")
 
     if want_3d:
-        numba_tsc_3D(C, y_3d, Lbox_hkpc, weights=Y_chunk)
-        numba_tsc_3D(C, b_xy_3d, Lbox_hkpc, weights=b_chunk[:, 2])
-        numba_tsc_3D(C, tau_3d, Lbox_hkpc, weights=tau_chunk)
+        if "Y_compton" in map_types:
+            numba_tsc_3D(C, y_3d, Lbox_hkpc, weights=Y_chunk)
+        if "b" in map_types:
+            numba_tsc_3D(C, b_xy_3d, Lbox_hkpc, weights=b_chunk[:, 2])
+        if "tau" in map_types:
+            numba_tsc_3D(C, tau_3d, Lbox_hkpc, weights=tau_chunk)
     else:
         
         # flatten out in each of three directions (10 times faster than histogramdd
@@ -244,11 +291,16 @@ for i in range(myrank*n_jump, (myrank+1)*n_jump):
             tau_zx += hist2d_numba_seq(np.array([C[:, 2], C[:, 0]]), bins=nbins2d, ranges=ranges, weights=tau_chunk)
         else:
             tau_xy += hist2d_numba_seq(np.array([C[:, 0], C[:, 1]]), bins=nbins2d, ranges=ranges, weights=tau_chunk)
-        
+
+    del C, Y_chunk, b_chunk, tau_chunk; gc.collect()
+    
 if want_3d:
-    np.save(f"{save_dir}/Y_compton_3d_snap_{snapshot:d}_rank{myrank:d}_{n_ranks:d}.npy", y_3d)
-    np.save(f"{save_dir}/b_xy_3d_snap_{snapshot:d}_rank{myrank:d}_{n_ranks:d}.npy", b_xy_3d)
-    np.save(f"{save_dir}/tau_3d_snap_{snapshot:d}_rank{myrank:d}_{n_ranks:d}.npy", tau_3d)
+    if "Y_compton" in map_types:
+        np.save(f"{save_dir}/Y_compton_3d_snap_{snapshot:d}_rank{myrank:d}_{n_ranks:d}.npy", y_3d)
+    if "b" in map_types:
+        np.save(f"{save_dir}/b_xy_3d_snap_{snapshot:d}_rank{myrank:d}_{n_ranks:d}.npy", b_xy_3d)
+    if "tau" in map_types:
+        np.save(f"{save_dir}/tau_3d_snap_{snapshot:d}_rank{myrank:d}_{n_ranks:d}.npy", tau_3d)
 else:
     
     # save tSZ maps

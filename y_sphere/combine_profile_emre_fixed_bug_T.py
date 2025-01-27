@@ -26,7 +26,8 @@ P_e = np.zeros((N_gal, len(rbins)-1)) # mean electron pressure in each radial an
 n_e = np.zeros((N_gal, len(rbins)-1)) # mean electron number density in each radial and mass bin
 T_e = np.zeros((N_gal, len(rbins)-1)) # mean temperature in each radial and mass bin
 V_d = np.zeros((N_gal, len(rbins)-1))
-N_v = np.zeros((N_gal, len(rbins)-1)) 
+N_v = np.zeros((N_gal, len(rbins)-1))
+M_g = np.zeros((N_gal, len(rbins)-1)) 
 
 for myrank in range(n_ranks):
     print("myrank", myrank)
@@ -37,10 +38,11 @@ for myrank in range(n_ranks):
     T_e += data['T_e']
     V_d += data['V_d']
     N_v += data['N_v']
+    M_g += data['m_g']
 
 print("trying to save")
 #np.savez(f"{save_dir}/{style_str}_50r200c_snap_{snapshot:d}.npz", rbins=rbins, P_e=P_e, T_e=T_e, n_e=n_e, N_v=N_v, V_d=V_d, inds_halo=inds_halo)
-np.savez(f"{save_dir}/{style_str}_snap_{snapshot:d}.npz", rbins=rbins, P_e=P_e, T_e=T_e, n_e=n_e, N_v=N_v, V_d=V_d, inds_halo=inds_halo)
+np.savez(f"{save_dir}/{style_str}_snap_{snapshot:d}.npz", rbins=rbins, P_e=P_e, T_e=T_e, n_e=n_e, N_v=N_v, V_d=V_d, M_g=M_g, inds_halo=inds_halo)
 
 for myrank in range(n_ranks):
     print("don't delete anything for now")

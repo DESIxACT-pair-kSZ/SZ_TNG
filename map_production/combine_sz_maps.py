@@ -5,12 +5,16 @@ import numpy as np
 
 """
 # MTNG
+python3 combine_sz_maps.py 1 125
+
+# MTNG
 python3 combine_sz_maps.py 32 264
 python3 combine_sz_maps.py 32 237
 python3 combine_sz_maps.py 32 214
 python3 combine_sz_maps.py 32 179
 
 # TNG300
+python3 combine_sz_maps.py 30 78
 python3 combine_sz_maps.py 30 69
 python3 combine_sz_maps.py 30 62
 python3 combine_sz_maps.py 30 56
@@ -28,18 +32,33 @@ python3 combine_sz_maps.py 32 105
 python3 combine_sz_maps.py 32 98
 python3 combine_sz_maps.py 32 92
 python3 combine_sz_maps.py 32 88
+
+python3 combine_sz_maps.py 32 135
+python3 combine_sz_maps.py 32 103
+
+
+python3 combine_sz_maps.py 32 114 Illustris
+python3 combine_sz_maps.py 30 78 TNG300
+
 """
 
 n_ranks = int(sys.argv[1]) # 32
 snapshot = int(sys.argv[2]) # 179, 214, 237, 264
+sim_name = sys.argv[3]
 want_all_dir = False
-want_3d = True
+want_3d = False
 
 # location stored
-save_dir = "/freya/ptmp/mpa/boryanah/data_sz/" # MTNG
-#save_dir = "/freya/ptmp/mpa/boryanah/data_sz/TNG300/" 
-#save_dir = "/freya/ptmp/mpa/boryanah/data_sz/Illustris/"
-#save_dir = "/freya/ptmp/mpa/boryanah/data_sz/TNG100/"
+if sim_name == "MTNG":
+    save_dir = "/freya/ptmp/mpa/boryanah/data_sz/" # MTNG
+elif sim_name == "SIMBA":
+    save_dir = "/freya/ptmp/mpa/boryanah/SIMBA100/" # SIMBA
+elif sim_name == "TNG300":
+    save_dir = "/freya/ptmp/mpa/boryanah/data_sz/TNG300/" # TNG300
+elif sim_name == "Illustris":
+    save_dir = "/freya/ptmp/mpa/boryanah/data_sz/Illustris/" # Illustris
+elif sim_name == "TNG100":
+    save_dir = "/freya/ptmp/mpa/boryanah/data_sz/TNG100/" # TNG100
 
 if want_3d:
     fields = ["Y_compton_3d", "b_xy_3d", "tau_3d"]
@@ -51,11 +70,15 @@ else:
         fields = ["Y_compton_xy", "b_xy", "tau_xy"]
 
 # todo could put somewhere nicer
-if "Illustris" in save_dir or "TNG100" in save_dir:
+if "Illustris" in save_dir or "TNG100" in save_dir or "SIMBA" in save_dir:
     nbins = 2001
 else:
     nbins = 10001
-Ndim = 1080 #1024
+if "Illustris" in save_dir:
+    Ndim = 910
+else:
+    Ndim = 512#1080 #1024
+    
 for i in range(len(fields)):
     field = fields[i]
     print(field)

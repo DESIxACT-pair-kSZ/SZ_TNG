@@ -4,6 +4,9 @@ import os
 import numpy as np
 
 """
+# SIMBA
+python3 combine_dm_map.py 1 125
+
 # MTNG
 python3 combine_dm_map.py 32 264
 python3 combine_dm_map.py 32 237
@@ -11,6 +14,7 @@ python3 combine_dm_map.py 32 214
 python3 combine_dm_map.py 32 179
 
 # TNG300
+python3 combine_dm_map.py 30 78
 python3 combine_dm_map.py 30 69
 python3 combine_dm_map.py 30 62
 python3 combine_dm_map.py 30 56
@@ -23,6 +27,7 @@ python3 combine_dm_map.py 30 56
 python3 combine_dm_map.py 30 52
 
 # Illustris
+python3 combine_dm_map.py 32 114
 python3 combine_dm_map.py 32 105
 python3 combine_dm_map.py 32 98
 python3 combine_dm_map.py 32 92
@@ -31,8 +36,9 @@ python3 combine_dm_map.py 32 88
 
 #sim_name = "MTNG"
 #sim_name = "TNG300"
-sim_name = "TNG100"
-#sim_name = "Illustris"
+#sim_name = "TNG100"
+#sim_name = "SIMBA"
+sim_name = "Illustris"
 n_ranks = int(sys.argv[1]) # 32
 snapshot = int(sys.argv[2]) # 179, 214, 237, 264
 want_all_dir = False
@@ -45,6 +51,8 @@ elif sim_name == "TNG300":
     save_dir = "/freya/ptmp/mpa/boryanah/data_sz/TNG300/"
 elif sim_name == "TNG100":
     save_dir = "/freya/ptmp/mpa/boryanah/data_sz/TNG100/"
+elif sim_name == "SIMBA":
+    save_dir = "/freya/ptmp/mpa/boryanah/SIMBA100/"
 elif sim_name == "Illustris":
     save_dir = "/freya/ptmp/mpa/boryanah/data_sz/Illustris/"
 
@@ -58,7 +66,7 @@ else:
         fields = ["dm_xy"] #["Y_compton_xy", "b_xy", "tau_xy"]
 
 # todo could put somewhere nicer
-if sim_name == "Illustris" or sim_name == "TNG100":
+if sim_name == "Illustris" or sim_name == "TNG100" or sim_name == "SIMBA":
     nbins = 2001
 else:
     nbins = 10001
